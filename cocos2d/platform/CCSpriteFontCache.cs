@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -115,19 +116,22 @@ namespace Cocos2D
         {
             loadedSize = fontSize;
 
-            try
-            {
-                return _contentManager.Load<SpriteFont>(FontKey(fontName, fontSize));
-            }
-            catch (ContentLoadException)
-            {
-            }
-
-            //Try nearest size
             if (_registeredFonts.ContainsKey(fontName))
             {
                 var sizes = _registeredFonts[fontName];
+                
+                if (fontSize - Math.Truncate(fontSize) == 0 && sizes.Contains((int)loadedSize))
+                {
+                    try
+                    {
+                        return _contentManager.Load<SpriteFont>(FontKey(fontName, fontSize));
+                    }
+                    catch (ContentLoadException)
+                    {
+                    }
+                }
 
+                //Try nearest size
                 loadedSize = sizes[sizes.Length - 1];
 
                 for (int i = 0; i < sizes.Length; i++)
