@@ -120,7 +120,7 @@ namespace Cocos2D
             {
                 var sizes = _registeredFonts[fontName];
                 
-                if (fontSize - Math.Truncate(fontSize) == 0 && sizes.Contains((int)loadedSize))
+                if (fontSize - Math.Truncate(fontSize) == 0 && sizes.Contains((int)fontSize))
                 {
                     try
                     {
