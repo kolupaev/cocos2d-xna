@@ -961,7 +961,7 @@ namespace Cocos2D
             }
         }
 
-        public void PopScene(float t, CCTransitionScene s)
+        public void PopScene(float t, CCTransitionScene s, float transitionDuration, Type transitionType)
         {
             Debug.Assert(m_pRunningScene != null, "m_pRunningScene cannot be null");
 
@@ -979,7 +979,10 @@ namespace Cocos2D
             else
             {
                 m_bSendCleanupToScene = true;
-                m_pNextScene = m_pobScenesStack[c - 1];
+                if (transitionType != null)
+                    m_pNextScene = (CCScene)Activator.CreateInstance(transitionType, transitionDuration, m_pobScenesStack[c - 1]);
+                else
+                    m_pNextScene = m_pobScenesStack[c - 1];
                 if (s != null)
                 {
                     m_pNextScene.Visible = true;
@@ -990,9 +993,19 @@ namespace Cocos2D
             }
         }
 
+        public void PopScene(float transitionDuration, Type transitionType)
+        {
+            PopScene(0, null, transitionDuration, transitionType);
+        }
+
+        public void PopScene(float t, CCTransitionScene s)
+        {
+            PopScene(t, s, 0, null);
+        }
+
         public void PopScene()
         {
-            PopScene(0, null);
+            PopScene(0, null, 0, null);
         }
 
         /** Pops out all scenes from the queue until the root scene in the queue.
