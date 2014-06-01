@@ -80,7 +80,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\WindowsStore\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;NETFX_CORE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;NETFX_CORE;WINRT</DefineConstants>
     <NoWarn>;2008</NoWarn>
     <DebugType>full</DebugType>
     <PlatformTarget>x86</PlatformTarget>
@@ -813,6 +813,9 @@
     </Compile>
     <Compile Include="..\tests\tests\classes\tests\Box2DTestBet\Tests\SensorTest.cs">
       <Link>classes\tests\Box2DTestBet\Tests\SensorTest</Link>
+    </Compile>
+    <Compile Include="..\tests\tests\classes\tests\MotionStreakTest\LightningStreakTest.cs">
+      <Link>classes\tests\MotionStreakTest\LightningStreakTest.cs</Link>
     </Compile>
     <Compile Include="..\tests\tests\classes\tests\MultiTouchTest\MultiTouchTest.cs">
       <Link>classes\tests\MultiTouchTest\MultiTouchTest.cs</Link>
