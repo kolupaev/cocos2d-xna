@@ -64,7 +64,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cocos2d\cocos2d.Windows.csproj">
-      <Project>{0C0AFDFF-A4E4-49F4-B6DB-A761B0DB64A8}</Project>
+      <Project>{0c0afdff-a4e4-49f4-b6db-a761b0db64a8}</Project>
       <Name>cocos2d.Windows</Name>
     </ProjectReference>
   </ItemGroup>
