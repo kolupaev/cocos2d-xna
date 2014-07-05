@@ -21,6 +21,7 @@ namespace Cocos2D
     {
         public const float kDefaultPadding = 5;
         public const int kCCMenuHandlerPriority = -128;
+        public const int kMaxGraphPriority = 9;
 
         protected bool m_bEnabled;
         protected CCMenuState m_eState;
@@ -156,7 +157,14 @@ namespace Cocos2D
             }
             if (base.Init())
             {
-                TouchPriority = kCCMenuHandlerPriority;
+                if (CCConfiguration.SharedConfiguration.UseGraphPriority)
+                {
+                    TouchPriority = kMaxGraphPriority;
+                }
+                else
+                {
+                    TouchPriority = kCCMenuHandlerPriority;
+                }
                 TouchMode = CCTouchMode.OneByOne;
                 TouchEnabled = true;
 
@@ -264,12 +272,6 @@ namespace Cocos2D
         {
             CCTouchDispatcher pDispatcher = CCDirector.SharedDirector.TouchDispatcher;
             pDispatcher.SetPriority(newPriority, this);
-        }
-
-        public override void RegisterWithTouchDispatcher()
-        {
-            CCDirector pDirector = CCDirector.SharedDirector;
-            pDirector.TouchDispatcher.AddTargetedDelegate(this, kCCMenuHandlerPriority, true);
         }
 
         public override bool TouchBegan(CCTouch touch)
