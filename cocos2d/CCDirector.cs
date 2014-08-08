@@ -1099,6 +1099,8 @@ namespace Cocos2D
 
         public void CreateStatsLabel()
         {
+            if (!m_bDisplayStats) return;
+            
             if (m_pFPSLabel == null)
             {
                 CCTexture2D texture;
