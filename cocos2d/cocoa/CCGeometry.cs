@@ -592,6 +592,13 @@ namespace Cocos2D
             return p1.X != p2.X || p1.Y != p2.Y;
         }
 
+		public static CCPoint operator -(CCPoint p1, CCSize p2)
+		{
+			CCPoint pt;
+			pt.X = p1.X - p2.Width;
+			pt.Y = p1.Y - p2.Height;
+			return pt;
+		}
         public static CCPoint operator -(CCPoint p1, CCPoint p2)
         {
             CCPoint pt;
@@ -607,6 +614,13 @@ namespace Cocos2D
             pt.Y = -p1.Y;
             return pt;
         }
+		public static CCPoint operator +(CCPoint p1, CCSize p2)
+		{
+			CCPoint pt;
+			pt.X = p1.X + p2.Width;
+			pt.Y = p1.Y + p2.Height;
+			return pt;
+		}
 
         public static CCPoint operator +(CCPoint p1, CCPoint p2)
         {
@@ -688,6 +702,13 @@ namespace Cocos2D
         {
             Width = width;
             Height = height;
+        }
+
+        public CCSize Clamp(CCSize max)
+        {
+            float w = (Width > max.Width) ? max.Width : Width;
+            float h = (Height > max.Height) ? max.Height : Height;
+            return (new CCSize(w, h));
         }
 
         /// <summary>
@@ -794,6 +815,14 @@ namespace Cocos2D
             size.Width = point.X;
             size.Height = point.Y;
             return size;
+        }
+
+        public CCRect AsRect
+        {
+            get
+            {
+                return (new CCRect(0, 0, Width, Height));
+            }
         }
     }
 

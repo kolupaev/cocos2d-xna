@@ -325,6 +325,9 @@ namespace Cocos2D
         private int m_LocalMaxZOrder = int.MinValue;
         private int m_LocalMinZOrder = int.MaxValue;
 
+        public int LocalMaxZForChildren { get { return (m_LocalMaxZOrder); } }
+        public int LocalMInZForChildren { get { return (m_LocalMinZOrder); } }
+
         public int ZOrder
         {
             get { return m_nZOrder; }
@@ -437,13 +440,20 @@ namespace Cocos2D
                 SetTransformIsDirty();
             }
         }
-
+        /// <summary>
+        /// Safely set the X position of the node. This will not create unnecessary temporary 
+        /// instances of the Position's CCPoint instance.
+        /// </summary>
         public float PositionX
         {
             get { return m_obPosition.X; }
             set { SetPosition(value, m_obPosition.Y); }
         }
 
+        /// <summary>
+        /// Safely set the Y position of the node. This will not create unnecessary temporary 
+        /// instances of the Position's CCPoint instance.
+        /// </summary>
         public float PositionY
         {
             get { return m_obPosition.Y; }
@@ -460,11 +470,18 @@ namespace Cocos2D
             get { return m_pChildren == null ? 0 : m_pChildren.count; }
         }
 
+        /// <summary>
+        /// Returns the camera for this node.
+        /// </summary>
         public CCCamera Camera
         {
             get { return m_pCamera ?? (m_pCamera = new CCCamera()); }
         }
 
+        /// <summary>
+        /// This is only valid when the node is used in a CCGrid action. Expect this to be
+        /// null when no grid action is active.
+        /// </summary>
         public CCGridBase Grid
         {
             get { return m_pGrid; }
@@ -727,7 +744,7 @@ namespace Cocos2D
             y = m_obPosition.Y;
         }
 
-        public void SetPosition(float x, float y)
+        public virtual void SetPosition(float x, float y)
         {
             m_obPosition.X = x;
             m_obPosition.Y = y;
@@ -830,6 +847,14 @@ namespace Cocos2D
                 child.OnEnter();
                 child.OnEnterTransitionDidFinish();
             }
+            if (zOrder < m_LocalMinZOrder)
+            {
+                m_LocalMinZOrder = zOrder;
+            }
+            if (zOrder > m_LocalMaxZOrder)
+            {
+                m_LocalMaxZOrder = zOrder;
+            }
             if (CCConfiguration.SharedConfiguration.UseGraphPriority)
             {
                 // My graph is changing, so rearrange the handlers
@@ -839,14 +864,22 @@ namespace Cocos2D
                 }
             }
         }
-        private void InsertChild(CCNode child, int z, int tag)
+        private void InsertChild(CCNode child, int zOrder, int tag)
         {
             m_bReorderChildDirty = true;
             m_pChildren.Add(child);
 
             ChangedChildTag(child, kCCNodeTagInvalid, tag);
 
-            child.m_nZOrder = z;
+            child.m_nZOrder = zOrder;
+            if (zOrder < m_LocalMinZOrder)
+            {
+                m_LocalMinZOrder = zOrder;
+            }
+            if (zOrder > m_LocalMaxZOrder)
+            {
+                m_LocalMaxZOrder = zOrder;
+            }
         }
         #endregion
 
@@ -1065,7 +1098,7 @@ namespace Cocos2D
         
         #region Child Sorting
 
-        int IComparer<CCNode>.Compare(CCNode n1, CCNode n2)
+        public virtual int Compare(CCNode n1, CCNode n2)
         {
             if (n1.m_nZOrder < n2.m_nZOrder || (n1.m_nZOrder == n2.m_nZOrder && n1.m_uOrderOfArrival < n2.m_uOrderOfArrival))
             {
@@ -1141,7 +1174,7 @@ namespace Cocos2D
                 // draw children zOrder < 0
                 for (; i < count; ++i)
                 {
-                    if (elements[i].Visible && elements[i].m_nZOrder < 0)
+                    if (elements[i].m_bVisible && elements[i].m_nZOrder < 0)
                     {
                         elements[i].Visit();
                     }
@@ -1157,11 +1190,11 @@ namespace Cocos2D
                 for (; i < count; ++i)
                 {
                     // Draw the z >= 0 order children next.
-                    if (elements[i].Visible/* && elements[i].m_nZOrder >= 0*/)
+                    if (elements[i].m_bVisible)
                     {
-                    elements[i].Visit();
+                        elements[i].Visit();
+                    }
                 }
-            }
             }
             else
             {
@@ -1445,12 +1478,12 @@ namespace Cocos2D
 
         public void Schedule(Action<float> selector)
         {
-            Schedule(selector, 0.0f, CCScheduler.kCCRepeatForever, 0.0f);
+            Schedule(selector, 0f, CCScheduler.kCCRepeatForever, 0f);
         }
 
         public void Schedule(Action<float> selector, float interval)
         {
-            Schedule(selector, interval, CCScheduler.kCCRepeatForever, 0.0f);
+            Schedule(selector, interval, CCScheduler.kCCRepeatForever, 0f);
         }
 
         public void Schedule(Action<float> selector, float interval, uint repeat, float delay)
