@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -472,6 +473,481 @@ namespace Cocos2D
                     m_pStopwatch.Start();
                 }
                 m_bDisplayStats = value;
+=======
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+#if !PSM &&!NETFX_CORE
+using System.IO.IsolatedStorage;
+#endif
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+
+namespace Cocos2D
+{
+    public interface ICCDirectorDelegate
+    {
+        void UpdateProjection();
+    }
+
+    /// <summary>
+    /// Class that creates and handle the main Window and manages how and when to execute the Scenes.
+    /// 
+    /// The CCDirector is also responsible for:
+    ///     - initializing the OpenGL context
+    ///     - setting the OpenGL pixel format (default on is RGB565)
+    ///     - setting the OpenGL buffer depth (default one is 0-bit)
+    ///     - setting the projection (default one is 3D)
+    ///     - setting the orientation (default one is Portrait)
+    /// 
+    /// Since the CCDirector is a singleton, the standard way to use it is by calling: _
+    /// CCDirector::sharedDirector()->methodName();
+    /// 
+    /// The CCDirector also sets the default OpenGL context:
+    ///     - GL_TEXTURE_2D is enabled
+    ///     - GL_VERTEX_ARRAY is enabled
+    ///     - GL_COLOR_ARRAY is enabled
+    ///     - GL_TEXTURE_COORD_ARRAY is enabled.  
+    /// </summary>
+
+    public abstract class CCDirector
+    {
+        private static CCDirector s_sharedDirector;
+
+        private readonly float kDefaultFPS = 60f;
+        private readonly List<CCScene> m_pobScenesStack = new List<CCScene>();
+        private bool m_bNextDeltaTimeZero;
+        private bool m_bPaused;
+        protected bool m_bPurgeDirectorInNextLoop; // this flag will be set to true in end()
+        private bool m_bSendCleanupToScene;
+        protected double m_dAnimationInterval;
+        protected double m_dOldAnimationInterval;
+        private CCDirectorProjection m_eProjection;
+        private float m_fContentScaleFactor = 1.0f;
+        private float m_fDeltaTime;
+        private bool m_NeedsInit = true;
+        internal CCSize m_obWinSizeInPoints;
+		
+#if !PSM &&!NETFX_CORE
+        private CCAccelerometer m_pAccelerometer;
+#endif
+		private CCActionManager m_pActionManager;
+        private CCKeypadDispatcher m_pKeypadDispatcher;
+		private CCKeyboardDispatcher m_pKeyboardDispatcher;
+        private CCScene m_pNextScene;
+        private CCNode m_pNotificationNode;
+
+        private ICCDirectorDelegate m_pProjectionDelegate;
+        private CCScene m_pRunningScene;
+        private CCScheduler m_pScheduler;
+        private CCTouchDispatcher m_pTouchDispatcher;
+
+        private bool m_bDisplayStats;
+        
+        private uint m_uTotalFrames;
+        private float m_fAccumDt;
+        private uint m_uUpdateCount;
+        private float m_fAccumDraw;
+        private uint m_uDrawCount;
+        private float m_fAccumUpdate;
+        
+        private CCLabelAtlas m_pFPSLabel;
+        private CCLabelAtlas m_pUpdateTimeLabel;
+        private CCLabelAtlas m_pDrawTimeLabel;
+        private CCLabelAtlas m_pDrawsLabel;
+        private CCLabelAtlas m_pMemoryLabel;
+        private CCLabelAtlas m_pGCLabel;
+
+        // Stopwatch for measure the time.
+        Stopwatch m_pStopwatch;
+        
+        #region State Management
+		
+#if !PSM &&!NETFX_CORE
+        private string m_sStorageDirName = "cocos2dDirector";
+        private string m_sSaveFileName = "SceneList.dat";
+        private string m_sSceneSaveFileName = "Scene{0}.dat";
+
+        /// <summary>
+        /// Write out the current state of the director and all of its scenes.
+        /// </summary>
+        public void SerializeState()
+        {
+            // open up isolated storage
+            using (IsolatedStorageFile storage = IsolatedStorageFile.GetUserStoreForApplication())
+            {
+                // if our screen manager directory already exists, delete the contents
+                if (storage.DirectoryExists(m_sStorageDirName))
+                {
+                    DeleteState(storage);
+                }
+
+                // otherwise just create the directory
+                else
+                {
+                    storage.CreateDirectory(m_sStorageDirName);
+                }
+
+                // create a file we'll use to store the list of screens in the stack
+
+                CCLog.Log("Saving CCDirector state to file: " + Path.Combine(m_sStorageDirName, m_sSaveFileName));
+
+                try
+                {
+                    using (IsolatedStorageFileStream stream = storage.OpenFile(Path.Combine(m_sStorageDirName, m_sSaveFileName), FileMode.OpenOrCreate))
+                    {
+                        using (StreamWriter writer = new StreamWriter(stream))
+                    {
+                        // write out the full name of all the types in our stack so we can
+                        // recreate them if needed.
+                        foreach (CCScene scene in m_pobScenesStack)
+                        {
+                            if (scene.IsSerializable)
+                            {
+                                    writer.WriteLine(scene.GetType().AssemblyQualifiedName);
+                                }
+                                else
+                                {
+                                    CCLog.Log("Scene is not serializable: " + scene.GetType().FullName);
+                            }
+                        }
+                        // Write out our local state
+                        if (m_pRunningScene != null && m_pRunningScene.IsSerializable)
+                        {
+                                writer.WriteLine("m_pRunningScene");
+                                writer.WriteLine(m_pRunningScene.GetType().AssemblyQualifiedName);
+                        }
+                        // Add my own state 
+                        // [*]name=value
+                        //
+
+                    }
+                }
+
+                // now we create a new file stream for each screen so it can save its state
+                // if it needs to. we name each file "ScreenX.dat" where X is the index of
+                // the screen in the stack, to ensure the files are uniquely named
+                int screenIndex = 0;
+                string fileName = null;
+                foreach (CCScene scene in m_pobScenesStack)
+                {
+                    if (scene.IsSerializable)
+                    {
+                        fileName = string.Format(Path.Combine(m_sStorageDirName, m_sSceneSaveFileName), screenIndex);
+
+                        // open up the stream and let the screen serialize whatever state it wants
+                        using (IsolatedStorageFileStream stream = storage.CreateFile(fileName))
+                        {
+                            scene.Serialize(stream);
+                        }
+
+                        screenIndex++;
+                    }
+                }
+                // Write the current running scene
+                if (m_pRunningScene != null && m_pRunningScene.IsSerializable)
+                {
+                    fileName = string.Format(Path.Combine(m_sStorageDirName, m_sSceneSaveFileName), "XX");
+                    // open up the stream and let the screen serialize whatever state it wants
+                    using (IsolatedStorageFileStream stream = storage.CreateFile(fileName))
+                    {
+                        m_pRunningScene.Serialize(stream);
+                    }
+                }
+            }
+                catch (Exception ex)
+                {
+                    CCLog.Log("Failed to serialize the CCDirector state. Erasing the save files.");
+                    CCLog.Log(ex.ToString());
+                    DeleteState(storage);
+                }
+        }
+        }
+
+        private void DeserializeMyState(string name, string v)
+        {
+            // TODO
+        }
+
+        public bool DeserializeState()
+        {
+            try
+            {
+            // open up isolated storage
+            using (IsolatedStorageFile storage = IsolatedStorageFile.GetUserStoreForApplication())
+            {
+                // see if our saved state directory exists
+                if (storage.DirectoryExists(m_sStorageDirName))
+                {
+                    string saveFile = System.IO.Path.Combine(m_sStorageDirName, m_sSaveFileName);
+                    try
+                    {
+                            CCLog.Log("Loading director data file: {0}", saveFile);
+                        // see if we have a screen list
+                        if (storage.FileExists(saveFile))
+                        {
+                            // load the list of screen types
+                            using (IsolatedStorageFileStream stream = storage.OpenFile(saveFile, FileMode.Open, FileAccess.Read))
+                            {
+                                    using (StreamReader reader = new StreamReader(stream))
+                                {
+                                        CCLog.Log("Director save file contains {0} bytes.", reader.BaseStream.Length);
+                                        try
+                                        {
+                                            while (true)
+                                    {
+                                        // read a line from our file
+                                                string line = reader.ReadLine();
+                                                if (line == null)
+                                                {
+                                                    break;
+                                                }
+                                                CCLog.Log("Restoring: {0}", line);
+
+                                        // if it isn't blank, we can create a screen from it
+                                        if (!string.IsNullOrEmpty(line))
+                                        {
+                                            if (line.StartsWith("[*]"))
+                                            {
+                                                // Reading my state
+                                                string s = line.Substring(3);
+                                                int idx = s.IndexOf('=');
+                                                if (idx > -1)
+                                                {
+                                                    string name = s.Substring(0, idx);
+                                                    string v = s.Substring(idx + 1);
+                                                            CCLog.Log("Restoring: {0} = {1}", name, v);
+                                                    DeserializeMyState(name, v);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                Type screenType = Type.GetType(line);
+                                                CCScene scene = Activator.CreateInstance(screenType) as CCScene;
+                                                        PushScene(scene);
+                                                        //                                                    m_pobScenesStack.Add(scene);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        catch (Exception)
+                                        {
+                                            // EndOfStreamException
+                                            // this is OK here.
+                                    }
+                                }
+                            }
+                            // Now we deserialize our own state.
+                        }
+                            else
+                            {
+                                CCLog.Log("save file does not exist.");
+                            }
+
+                        // next we give each screen a chance to deserialize from the disk
+                        for (int i = 0; i < m_pobScenesStack.Count; i++)
+                        {
+                                string filename = System.IO.Path.Combine(m_sStorageDirName, string.Format(m_sSceneSaveFileName, i));
+                                if (storage.FileExists(filename))
+                                {
+                            using (IsolatedStorageFileStream stream = storage.OpenFile(filename, FileMode.Open, FileAccess.Read))
+                            {
+                                        CCLog.Log("Restoring state for scene {0}", filename);
+                                m_pobScenesStack[i].Deserialize(stream);
+                            }
+                        }
+                            }
+                        if (m_pobScenesStack.Count > 0)
+                        {
+                                CCLog.Log("Director is running with scene..");
+
+                            RunWithScene(m_pobScenesStack[m_pobScenesStack.Count - 1]); // always at the top of the stack
+                        }
+                        return (m_pobScenesStack.Count > 0 && m_pRunningScene != null);
+                    }
+                        catch (Exception ex)
+                    {
+                        // if an exception was thrown while reading, odds are we cannot recover
+                        // from the saved state, so we will delete it so the game can correctly
+                        // launch.
+                        DeleteState(storage);
+                            CCLog.Log("Failed to deserialize the director state, removing old storage file.");
+                            CCLog.Log(ex.ToString());
+                    }
+                }
+            }
+            }
+            catch (Exception ex)
+            {
+                CCLog.Log("Failed to deserialize director state.");
+                CCLog.Log(ex.ToString());
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Deletes the saved state files from isolated storage.
+        /// </summary>
+        private void DeleteState(IsolatedStorageFile storage)
+        {
+            // glob on all of the files in the directory and delete them
+            string[] files = storage.GetFileNames(System.IO.Path.Combine(m_sStorageDirName, "*"));
+            foreach (string file in files)
+            {
+                storage.DeleteFile(Path.Combine(m_sStorageDirName, file));
+            }
+                        }
+#endif
+        #endregion
+
+        public ICCDirectorDelegate Delegate
+        {
+            get { return m_pProjectionDelegate; }
+            set { m_pProjectionDelegate = value; }
+        }
+
+        /// <summary>
+        /// Calls SetViewPortInPoints found in CCDrawManager. This will setup the project viewport.
+        /// </summary>
+        public void SetViewport()
+        {
+            CCDrawManager.SetViewPortInPoints(0, 0, (int)m_obWinSizeInPoints.Width, (int)m_obWinSizeInPoints.Height);
+        }
+
+        public CCDirectorProjection Projection
+        {
+            get { return m_eProjection; }
+            set
+            {
+                SetViewport();
+
+                CCSize size = m_obWinSizeInPoints;
+
+                switch (value)
+                {
+                    case CCDirectorProjection.Projection2D:
+
+                        CCDrawManager.ProjectionMatrix = Matrix.CreateOrthographicOffCenter(
+                            0, size.Width,
+                            0, size.Height,
+                            -1024.0f, 1024.0f
+                            );
+
+                        CCDrawManager.ViewMatrix = Matrix.Identity;
+                        
+                        CCDrawManager.WorldMatrix = Matrix.Identity;
+                        break;
+
+                    case CCDirectorProjection.Projection3D:
+
+                        CCDrawManager.ProjectionMatrix = Matrix.CreatePerspectiveFieldOfView(
+                            MathHelper.Pi / 3.0f,
+                            size.Width / size.Height,
+                            0.1f, 1500 //ZEye * 2f
+                            );
+
+                        CCDrawManager.ViewMatrix = Matrix.CreateLookAt(
+                            new Vector3(size.Width / 2.0f, size.Height / 2.0f, ZEye),
+                            new Vector3(size.Width / 2.0f, size.Height / 2.0f, 0f),
+                            Vector3.Up
+                            );
+
+                            CCDrawManager.WorldMatrix = Matrix.Identity;
+                        break;
+
+                    case CCDirectorProjection.Custom:
+                        if (m_pProjectionDelegate != null)
+                        {
+                            m_pProjectionDelegate.UpdateProjection();
+                        }
+                        break;
+
+                    default:
+                        Debug.Assert(true, "cocos2d: Director: unrecognized projection");
+                        break;
+                }
+
+                m_eProjection = value;
+            }
+        }
+
+        public float ZEye
+        {
+            get { return (m_obWinSizeInPoints.Height / 1.1566f); }
+        }
+
+        public CCSize VisibleSize
+        {
+            get { return CCDrawManager.VisibleSize; }
+        }
+
+        public CCPoint VisibleOrigin
+        {
+            get { return CCDrawManager.VisibleOrigin; }
+        }
+
+        public CCScheduler Scheduler
+        {
+            get { return m_pScheduler; }
+            set { m_pScheduler = value; }
+        }
+
+        public CCActionManager ActionManager
+        {
+            get { return m_pActionManager; }
+            set { m_pActionManager = value; }
+        }
+
+        public CCTouchDispatcher TouchDispatcher
+        {
+            get { return m_pTouchDispatcher; }
+            set { m_pTouchDispatcher = value; }
+        }
+
+        public CCKeypadDispatcher KeypadDispatcher
+        {
+            get { return m_pKeypadDispatcher; }
+            set { m_pKeypadDispatcher = value; }
+        }
+
+		public CCKeyboardDispatcher KeyboardDispatcher
+		{
+			get { return m_pKeyboardDispatcher; }
+			set { m_pKeyboardDispatcher = value; }
+		}
+
+#if !PSM &&!NETFX_CORE
+		public CCAccelerometer Accelerometer
+        {
+            get { return m_pAccelerometer; }
+            set { m_pAccelerometer = value; }
+        }
+#endif
+        public CCScene RunningScene
+        {
+            get { return m_pRunningScene; }
+        }
+
+        public virtual double AnimationInterval
+        {
+            get { return m_dAnimationInterval; }
+            set { m_dAnimationInterval = value; }
+        }
+
+        public bool DisplayStats
+        {
+            get { return m_bDisplayStats; }
+            set
+            {
+                if (value != m_bDisplayStats)
+                {
+                    m_pStopwatch.Reset();
+                    m_pStopwatch.Start();
+                }
+                m_bDisplayStats = value;
             }
         }
 
@@ -686,6 +1162,7 @@ namespace Cocos2D
             if (m_pNotificationNode != null)
             {
                 NotificationNode.Visit();
+>>>>>>> 9fe351454b41d56af9f96781dae5d18245f7e67c
             }
 
             if(m_bDisplayStats)
@@ -1099,6 +1576,8 @@ namespace Cocos2D
 
         public void CreateStatsLabel()
         {
+            if (!m_bDisplayStats) return;
+            
             if (m_pFPSLabel == null)
             {
                 CCTexture2D texture;

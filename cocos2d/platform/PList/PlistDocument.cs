@@ -71,6 +71,7 @@ namespace Cocos2D
             this.root = root;
         }
 
+
         public void LoadFromXmlFile(Stream data)
         {
             data = SeekableStream(data);

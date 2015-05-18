@@ -317,7 +317,7 @@ namespace Cocos2D
                     {
                         if (bClaimed)
                         {
-                            break;
+                            //break;
                         }
                         var pDelegate = (ICCTargetedTouchDelegate) (pHandler.Delegate);
                         if (!pDelegate.VisibleForTouches)
